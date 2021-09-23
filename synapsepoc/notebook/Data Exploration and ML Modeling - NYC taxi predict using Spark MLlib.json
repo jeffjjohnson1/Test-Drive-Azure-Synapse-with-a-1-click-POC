@@ -77,7 +77,7 @@
 					"from pyspark.mllib.evaluation import BinaryClassificationMetrics\n",
 					"from pyspark.ml.evaluation import BinaryClassificationEvaluator"
 				],
-				"execution_count": 1
+				"execution_count": 2
 			},
 			{
 				"cell_type": "markdown",
@@ -102,7 +102,7 @@
 					"nyc_tlc = NycTlcYellow(start_date=start_date, end_date=end_date)\n",
 					"nyc_tlc_df = nyc_tlc.to_spark_dataframe()"
 				],
-				"execution_count": 2
+				"execution_count": 3
 			},
 			{
 				"cell_type": "code",
@@ -110,7 +110,7 @@
 					"#To make development easier, faster and less expensive downsample for now\n",
 					"sampled_taxi_df = nyc_tlc_df.sample(True, 0.001, seed=1234)"
 				],
-				"execution_count": 3
+				"execution_count": 4
 			},
 			{
 				"cell_type": "markdown",
@@ -151,7 +151,7 @@
 					"plt.suptitle('')\n",
 					"plt.show()"
 				],
-				"execution_count": 4
+				"execution_count": 5
 			},
 			{
 				"cell_type": "markdown",
@@ -183,7 +183,7 @@
 					"                                & (sampled_taxi_df.paymentType.isin({\"1\", \"2\"}))\n",
 					"                                )"
 				],
-				"execution_count": 5
+				"execution_count": 6
 			},
 			{
 				"cell_type": "markdown",
@@ -209,7 +209,7 @@
 					"                                              )\\\n",
 					"                                       .filter((taxi_df.tripTimeSecs >= 30) & (taxi_df.tripTimeSecs <= 7200))"
 				],
-				"execution_count": 6
+				"execution_count": 7
 			},
 			{
 				"cell_type": "markdown",
@@ -236,7 +236,7 @@
 					"# Create a new dataframe that has had the encodings applied\n",
 					"encoded_final_df = Pipeline(stages=[sI1, en1, sI2, en2]).fit(taxi_featurised_df).transform(taxi_featurised_df)"
 				],
-				"execution_count": 7
+				"execution_count": 8
 			},
 			{
 				"cell_type": "markdown",
@@ -257,7 +257,7 @@
 					"# Split the dataframe into test and training dataframes\n",
 					"train_data_df, test_data_df = encoded_final_df.randomSplit([trainingFraction, testingFraction], seed=seed)"
 				],
-				"execution_count": 8
+				"execution_count": 9
 			},
 			{
 				"cell_type": "markdown",
@@ -291,7 +291,7 @@
 					"metrics = BinaryClassificationMetrics(predictionAndLabels)\n",
 					"print(\"Area under ROC = %s\" % metrics.areaUnderROC)"
 				],
-				"execution_count": 9
+				"execution_count": 10
 			},
 			{
 				"cell_type": "markdown",
@@ -315,7 +315,7 @@
 					"plt.ylabel('True Positive Rate')\n",
 					"plt.show()"
 				],
-				"execution_count": 10
+				"execution_count": 11
 			},
 			{
 				"cell_type": "code",
@@ -333,9 +333,12 @@
 				"source": [
 					"from pyspark.sql.types import *\r\n",
 					"\r\n",
+					"test_data_df = test_data_df.withColumn(\"weekdayVec\", col(\"weekdayVec\").cast(StringType()))\r\n",
+					"test_data_df = test_data_df.withColumn(\"trafficTimeBinsVec\", col(\"trafficTimeBinsVec\").cast(StringType()))\r\n",
+					"\r\n",
 					"test_data_df.createOrReplaceTempView(\"test_data\")"
 				],
-				"execution_count": 11
+				"execution_count": 30
 			},
 			{
 				"cell_type": "code",
@@ -355,12 +358,17 @@
 				},
 				"source": [
 					"%%spark\r\n",
+					"import com.microsoft.spark.sqlanalytics.utils.Constants\r\n",
+					"import org.apache.spark.sql.SqlAnalyticsConnector._\r\n",
 					"\r\n",
 					"val rdf = spark.sqlContext.sql(\"select * from test_data\")\r\n",
 					"\r\n",
-					"rdf.write.synapsesql(\"fdx526b7g4uimzu4pocws1p1.IanTest.test_data\", Constants.INTERNAL)"
+					"// \"{\"type\":0,\"size\":7,\"indices\":[4],\"values\":[1]}\"\r\n",
+					"\r\n",
+					"rdf.write.synapsesql(\"fdx526b7g4uimzu4pocws1p1.IanTest.test_data_2\", Constants.INTERNAL)\r\n",
+					"// rdf.write.sqlanalytics(\"fdx526b7g4uimzu4pocws1p1.IanTest.test_data\", Constants.INTERNAL)"
 				],
-				"execution_count": 12
+				"execution_count": 33
 			}
 		]
 	}
