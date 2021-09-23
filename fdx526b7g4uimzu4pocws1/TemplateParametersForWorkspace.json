@@ -5,6 +5,9 @@
 		"workspaceName": {
 			"value": "fdx526b7g4uimzu4pocws1"
 		},
+		"SqlServer1_connectionString": {
+			"value": ""
+		},
 		"TripFaresSynapseAnalyticsLinkedService_connectionString": {
 			"value": ""
 		},
