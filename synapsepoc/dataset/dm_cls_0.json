@@ -1,0 +1,37 @@
+{
+	"name": "dm_cls_0",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SqlServer1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "shp_pro_nbr",
+				"type": "varchar"
+			},
+			{
+				"name": "shp_sufx_cd",
+				"type": "char"
+			},
+			{
+				"name": "line_nbr",
+				"type": "char"
+			},
+			{
+				"name": "orig_fgt_class_cd",
+				"type": "char"
+			},
+			{
+				"name": "final_fgt_class_cd",
+				"type": "char"
+			}
+		],
+		"typeProperties": {
+			"schema": "WRO_MASTER_FXF",
+			"table": "dm_cls_0"
+		}
+	}
+}
