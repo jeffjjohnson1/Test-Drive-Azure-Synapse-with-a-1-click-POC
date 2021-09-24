@@ -1,0 +1,672 @@
+{
+	"name": "ml_model_corr_rev_cnt",
+	"properties": {
+		"bigDataPool": {
+			"referenceName": "ws1sparkpool1",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "56g",
+			"driverCores": 8,
+			"executorMemory": "56g",
+			"executorCores": 8,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "python"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/0f31df2a-99fa-4042-8c07-97f5ad634b13/resourceGroups/rg-revenue-services-analytics-dev/providers/Microsoft.Synapse/workspaces/fdx526b7g4uimzu4pocws1/bigDataPools/ws1sparkpool1",
+				"name": "ws1sparkpool1",
+				"type": "Spark",
+				"endpoint": "https://fdx526b7g4uimzu4pocws1.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/ws1sparkpool1",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 5,
+				"cores": 8,
+				"memory": 56
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"import numpy as np\n",
+					"from keras.models import Sequential\n",
+					"from keras.layers import Dense\n",
+					"import pandas as pd\n",
+					"from sklearn.model_selection import train_test_split"
+				],
+				"execution_count": 252
+			},
+			{
+				"cell_type": "raw",
+				"source": [
+					"## Base query\n",
+					"## -------------------------\n",
+					"select blng_dt, blng_tot_amt_orig, tot_wgt_orig, orig_fgt_class_cd, tot_pcs, cls_nbr, debtor_print_grp_cd, corr_rev_cnt\n",
+					"from revprd.wro_master_fxf.fxf_shipment as main_table\n",
+					"inner join RevPRD.wro_master_fxf.dm_cls_0 dm\n",
+					"on main_table.shp_pro_nbr = dm.shp_pro_nbr\n",
+					"and main_table.shp_sufx_cd = dm.shp_sufx_cd\n",
+					"inner join RevWRK.wro_master_fxf.dm_item_1 it1\n",
+					"on main_table.shp_pro_nbr = it1.shp_pro_nbr\n",
+					"and main_table.shp_sufx_cd = it1.shp_sufx_cd\n",
+					"where LTRIM(RTRIM(main_table.shpr_cust_id)) = '258449150'\n",
+					"and LTRIM(RTRIM(main_table.cnsgn_cust_id)) = '999739'\n",
+					"and it1.corr_rev_cnt < 2\n",
+					"## -------------------------\n",
+					"NOTE: Additional date preprocessing in Excel performed to get data into: YYYY/MM/DD HH:MM format\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"num_of_rows = 66989\n",
+					"filename = 'deep_learning_data_orig.csv'\n",
+					"df = pd.read_csv(filename, nrows = num_of_rows).iloc[:, :8]\n",
+					"print(df.head(5))"
+				],
+				"execution_count": 253
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## -------------------------\n",
+					"## View range of unique values for each field\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View range of blng_dt\n",
+					"df['blng_dt'] = pd.to_datetime(df['blng_dt'])\n",
+					"print(\n",
+					"    {\n",
+					"        'first date:': df['blng_dt'].min(),\n",
+					"        'last date': df['blng_dt'].max()\n",
+					"    }\n",
+					")"
+				],
+				"execution_count": 254
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View range of billing amount\n",
+					"print({'minimum billing amount:': df['blng_tot_amt_orig'].min(), 'maximum billing amount:': df['blng_tot_amt_orig'].max()})"
+				],
+				"execution_count": 255
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View range of weight\n",
+					"print({'minimum weight:': df['tot_wgt_orig'].min(), 'maximum weight:': df['tot_wgt_orig'].max()})"
+				],
+				"execution_count": 256
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View unique freight classes\n",
+					"df['orig_fgt_class_cd'].unique()"
+				],
+				"execution_count": 257
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View range of number of pieces\n",
+					"print({'minimum number of pieces:': df['tot_pcs'].min(), 'maximum number of pieces:': df['tot_pcs'].max()})"
+				],
+				"execution_count": 258
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View unique class numbers\n",
+					"df['cls_nbr'].unique()"
+				],
+				"execution_count": 259
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View debtor print group locations\n",
+					"df['debtor_print_grp_cd'].unique()"
+				],
+				"execution_count": 260
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## View unique correction revenue counts\n",
+					"df['corr_rev_cnt'].unique()"
+				],
+				"execution_count": 261
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## -------------------------\n",
+					"## Data pre-processing using fine classing\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments blng_dt into 3 groups\n",
+					"df['blng_dt: Seg 1'] = 0\n",
+					"seg_1_indices = np.where(df['blng_dt'] < '2020-05-08 00:00:00')[0]\n",
+					"df['blng_dt: Seg 1'].iloc[seg_1_indices] = 1\n",
+					"print('No in Seg 1:', len(np.where(df['blng_dt: Seg 1'] == 1)[0]))\n",
+					"\n",
+					"df['blng_dt: Seg 2'] = 0\n",
+					"seg_2_indices = np.where((df['blng_dt'] >= '2020-11-08 00:00:00') & (df['blng_dt'] < '2021-05-08 00:00:00'))[0]\n",
+					"df['blng_dt: Seg 2'].iloc[seg_2_indices] = 1\n",
+					"print('No in Seg 2:', len(np.where(df['blng_dt: Seg 2'] == 1)[0]))\n",
+					"\n",
+					"df['blng_dt: Seg 3'] = 0\n",
+					"seg_3_indices = np.where(df['blng_dt'] >= '2021-05-08 00:00:00')[0]\n",
+					"df['blng_dt: Seg 3'].iloc[seg_3_indices] = 1\n",
+					"print('No in Seg 3:', len(np.where(df['blng_dt: Seg 3'] == 1)[0]))"
+				],
+				"execution_count": 262
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original blng_dt column\n",
+					"df = df.drop('blng_dt', 1)"
+				],
+				"execution_count": 263
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 264
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments blng_tot_amt_orig into 3 groups\n",
+					"df['blng_tot_amt_orig: Seg 1'] = 0\n",
+					"seg_1_indices = np.where((df['blng_tot_amt_orig'] > 102.29) & (df['blng_tot_amt_orig'] <= 202.29))[0]\n",
+					"df['blng_tot_amt_orig: Seg 1'].iloc[seg_1_indices] = 1\n",
+					"print('No in Seg 1:', len(np.where(df['blng_tot_amt_orig: Seg 1'] == 1)[0]))\n",
+					"\n",
+					"df['blng_tot_amt_orig: Seg 2'] = 0\n",
+					"seg_2_indices = np.where((df['blng_tot_amt_orig'] > 202.29) & (df['blng_tot_amt_orig'] <= 302.29))[0]\n",
+					"df['blng_tot_amt_orig: Seg 2'].iloc[seg_2_indices] = 1\n",
+					"print('No in Seg 2:', len(np.where(df['blng_tot_amt_orig: Seg 2'] == 1)[0]))\n",
+					"\n",
+					"df['blng_tot_amt_orig: Seg 3'] = 0\n",
+					"seg_3_indices = np.where(df['blng_tot_amt_orig'] > 302.29)[0]\n",
+					"df['blng_tot_amt_orig: Seg 3'].iloc[seg_3_indices] = 1\n",
+					"print('No in Seg 3:', len(np.where(df['blng_tot_amt_orig: Seg 3'] == 1)[0]))"
+				],
+				"execution_count": 265
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original blng_tot_amt_orig column\n",
+					"df = df.drop('blng_tot_amt_orig', 1)"
+				],
+				"execution_count": 266
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 267
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments tot_wgt_orig into 4 groups\n",
+					"df['tot_wgt_orig: Seg 1'] = 0\n",
+					"seg_1_indices = np.where((df['tot_wgt_orig'] > 1) & (df['tot_wgt_orig'] <= 300))[0]\n",
+					"df['tot_wgt_orig: Seg 1'].iloc[seg_1_indices] = 1\n",
+					"print('No in Seg 1:', len(np.where(df['tot_wgt_orig: Seg 1'] == 1)[0]))\n",
+					"\n",
+					"df['tot_wgt_orig: Seg 2'] = 0\n",
+					"seg_2_indices = np.where((df['tot_wgt_orig'] > 300) & (df['tot_wgt_orig'] <= 500))[0]\n",
+					"df['tot_wgt_orig: Seg 2'].iloc[seg_2_indices] = 1\n",
+					"print('No in Seg 2:', len(np.where(df['tot_wgt_orig: Seg 2'] == 1)[0]))\n",
+					"\n",
+					"df['tot_wgt_orig: Seg 3'] = 0\n",
+					"seg_3_indices = np.where((df['tot_wgt_orig'] > 500) & (df['tot_wgt_orig'] <= 1000))[0]\n",
+					"df['tot_wgt_orig: Seg 3'].iloc[seg_3_indices] = 1\n",
+					"print('No in Seg 3:', len(np.where(df['tot_wgt_orig: Seg 3'] == 1)[0]))\n",
+					"\n",
+					"df['tot_wgt_orig: Seg 4'] = 0\n",
+					"seg_4_indices = np.where(df['tot_wgt_orig'] > 1000)[0]\n",
+					"df['tot_wgt_orig: Seg 4'].iloc[seg_4_indices] = 1\n",
+					"print('No in Seg 4:', len(np.where(df['tot_wgt_orig: Seg 4'] == 1)[0]))"
+				],
+				"execution_count": 268
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original tot_wgt_orig column\n",
+					"df = df.drop('tot_wgt_orig', 1)"
+				],
+				"execution_count": 269
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 270
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Segment each freight class code into a single group\n",
+					"i = 1\n",
+					"for class_cd in df['orig_fgt_class_cd'].unique():\n",
+					"    df_name = fr'orig_fgt_class_cd: Seg {i}'\n",
+					"    df[df_name] = 0\n",
+					"    indices = np.where(df['orig_fgt_class_cd'] == class_cd)[0]\n",
+					"    df[df_name].iloc[indices] = 1\n",
+					"    print(fr'No in Seg {i}:', len(np.where(df[df_name] == 1)[0]))\n",
+					"    i += 1"
+				],
+				"execution_count": 271
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original orig_fgt_class_cd column\n",
+					"df = df.drop('orig_fgt_class_cd', 1)"
+				],
+				"execution_count": 272
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 273
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments tot_pcs into 4 groups\n",
+					"df['tot_pcs: Seg 1'] = 0\n",
+					"seg_1_indices = np.where((df['tot_pcs'] > 0) & (df['tot_pcs'] <= 10))[0]\n",
+					"df['tot_pcs: Seg 1'].iloc[seg_1_indices] = 1\n",
+					"print('No in Seg 1:', len(np.where(df['tot_pcs: Seg 1'] == 1)[0]))\n",
+					"\n",
+					"df['tot_pcs: Seg 2'] = 0\n",
+					"seg_2_indices = np.where((df['tot_pcs'] > 10) & (df['tot_pcs'] <= 20))[0]\n",
+					"df['tot_pcs: Seg 2'].iloc[seg_2_indices] = 1\n",
+					"print('No in Seg 2:', len(np.where(df['tot_pcs: Seg 2'] == 1)[0]))\n",
+					"\n",
+					"df['tot_pcs: Seg 3'] = 0\n",
+					"seg_3_indices = np.where((df['tot_pcs'] > 20) & (df['tot_pcs'] <= 40))[0]\n",
+					"df['tot_pcs: Seg 3'].iloc[seg_3_indices] = 1\n",
+					"print('No in Seg 3:', len(np.where(df['tot_pcs: Seg 3'] == 1)[0]))\n",
+					"\n",
+					"df['tot_pcs: Seg 4'] = 0\n",
+					"seg_4_indices = np.where(df['tot_pcs'] > 40)[0]\n",
+					"df['tot_pcs: Seg 4'].iloc[seg_4_indices] = 1\n",
+					"print('No in Seg 4:', len(np.where(df['tot_pcs: Seg 4'] == 1)[0]))"
+				],
+				"execution_count": 274
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original tot_pcs column\n",
+					"df = df.drop('tot_pcs', 1)"
+				],
+				"execution_count": 275
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 276
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments cls_nbr into single MULT group\n",
+					"df['cls_nbr: MULT'] = 0\n",
+					"seg_1_indices = np.where(df['cls_nbr'] == 'MULT')[0]\n",
+					"df['cls_nbr: MULT'].iloc[seg_1_indices] = 1\n",
+					"print('No in MULT:', len(np.where(df['cls_nbr: MULT'] == 1)[0]))"
+				],
+				"execution_count": 277
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original cls_nbr column\n",
+					"df = df.drop('cls_nbr', 1)"
+				],
+				"execution_count": 278
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 279
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments debtor_print_grp_cd into 4 groups\n",
+					"df['debtor_print_grp_cd: CI05'] = 0\n",
+					"seg_1_indices = np.where(df['debtor_print_grp_cd'] == 'CI05')[0]\n",
+					"df['debtor_print_grp_cd: CI05'].iloc[seg_1_indices] = 1\n",
+					"print('No in CI05:', len(np.where(df['debtor_print_grp_cd: CI05'] == 1)[0]))\n",
+					"\n",
+					"df['debtor_print_grp_cd: EDI5'] = 0\n",
+					"seg_2_indices = np.where(df['debtor_print_grp_cd'] == 'EDI5')[0]\n",
+					"df['debtor_print_grp_cd: EDI5'].iloc[seg_2_indices] = 1\n",
+					"print('No in EDI5:', len(np.where(df['debtor_print_grp_cd: EDI5'] == 1)[0]))\n",
+					"\n",
+					"df['debtor_print_grp_cd: FLTE'] = 0\n",
+					"seg_3_indices = np.where(df['debtor_print_grp_cd'] == 'FLTE')[0]\n",
+					"df['debtor_print_grp_cd: FLTE'].iloc[seg_3_indices] = 1\n",
+					"print('No in FLTE:', len(np.where(df['debtor_print_grp_cd: FLTE'] == 1)[0]))\n",
+					"\n",
+					"df['debtor_print_grp_cd: CI07'] = 0\n",
+					"seg_4_indices = np.where(df['debtor_print_grp_cd'] == 'CI07')[0]\n",
+					"df['debtor_print_grp_cd: CI07'].iloc[seg_4_indices] = 1\n",
+					"print('No in CI07:', len(np.where(df['debtor_print_grp_cd: CI07'] == 1)[0]))"
+				],
+				"execution_count": 280
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Drop the original debtor_print_grp_cd column\n",
+					"df = df.drop('debtor_print_grp_cd', 1)"
+				],
+				"execution_count": 287
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df"
+				],
+				"execution_count": 288
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## -------------------------\n",
+					"## Prepare the dataset for training\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## Split data into training set (90%) and test set (10%)\n",
+					"train, test = train_test_split(df, test_size = 0.1)"
+				],
+				"execution_count": 289
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"train"
+				],
+				"execution_count": 290
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"test"
+				],
+				"execution_count": 291
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"train_input_variables = train.drop('corr_rev_cnt', 1)"
+				],
+				"execution_count": 292
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"train_input_variables"
+				],
+				"execution_count": 293
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"train_output_variable = train['corr_rev_cnt']"
+				],
+				"execution_count": 294
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"train_output_variable"
+				],
+				"execution_count": 295
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"test_input_variables = test.drop('corr_rev_cnt', 1)"
+				],
+				"execution_count": 296
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"test_input_variables"
+				],
+				"execution_count": 297
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"test_output_variable = test['corr_rev_cnt']"
+				],
+				"execution_count": 298
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"test_output_variable"
+				],
+				"execution_count": 299
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## -------------------------\n",
+					"## Prepare the keras model\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Define the keras model\n",
+					"model = Sequential()\n",
+					"model.add(Dense(40, input_dim = 38, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(40, activation='relu'))\n",
+					"model.add(Dense(1, activation='sigmoid'))"
+				],
+				"execution_count": 511
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Compile the keras model\n",
+					"model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])"
+				],
+				"execution_count": 512
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Fit the keras model on the dataset\n",
+					"class_weight = {\n",
+					"    0: 1,\n",
+					"    1: 5.7\n",
+					"}\n",
+					"model.fit(train_input_variables, train_output_variable, epochs = 30, batch_size = 30, class_weight = class_weight)"
+				],
+				"execution_count": 553
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## -------------------------\n",
+					"## Evaluate the keras model\n",
+					"## -------------------------"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Evaluate the training accuracy of the keras model\n",
+					"_, accuracy = model.evaluate(train_input_variables, train_output_variable)\n",
+					"print('Accuracy: %.2f' % (accuracy * 100))"
+				],
+				"execution_count": 554
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Evaluate the test accuracy of the keras model\n",
+					"_, accuracy = model.evaluate(test_input_variables, test_output_variable)\n",
+					"print('Accuracy: %.2f' % (accuracy * 100))"
+				],
+				"execution_count": 555
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"## NOTE: Segments test dataset by need for correction and no need for correction\n",
+					"corr_cnt_1_indices = np.where(test['corr_rev_cnt'] == 1)[0]\n",
+					"corr_cnt_1_test = test.iloc[corr_cnt_1_indices]\n",
+					"corr_cnt_1_test_input_variables = corr_cnt_1_test.drop('corr_rev_cnt', 1)\n",
+					"corr_cnt_1_test_output_variable = corr_cnt_1_test['corr_rev_cnt']\n",
+					"\n",
+					"corr_cnt_0_indices = np.where(test['corr_rev_cnt'] == 0)[0]\n",
+					"corr_cnt_0_test = test.iloc[corr_cnt_0_indices]\n",
+					"corr_cnt_0_test_input_variables = corr_cnt_0_test.drop('corr_rev_cnt', 1)\n",
+					"corr_cnt_0_test_output_variable = corr_cnt_0_test['corr_rev_cnt']"
+				],
+				"execution_count": 556
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"corr_cnt_1_test_input_variables"
+				],
+				"execution_count": 557
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"corr_cnt_1_test_output_variable"
+				],
+				"execution_count": 558
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"corr_cnt_0_test_input_variables"
+				],
+				"execution_count": 559
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"corr_cnt_0_test_output_variable"
+				],
+				"execution_count": 560
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Evaluate the test accuracy of the keras model\n",
+					"_, accuracy = model.evaluate(corr_cnt_1_test_input_variables, corr_cnt_1_test_output_variable)\n",
+					"print('False Negative Rate: %.2f' % ((1 - accuracy) * 100))\n",
+					"print('True Positive Rate: %.2f' % (accuracy * 100))"
+				],
+				"execution_count": 561
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"_, accuracy = model.evaluate(corr_cnt_0_test_input_variables, corr_cnt_0_test_output_variable)\n",
+					"print('False Positive Rate: %.2f' % ((1 - accuracy) * 100))\n",
+					"print('True Negative Rate: %.2f' % (accuracy * 100))"
+				],
+				"execution_count": 562
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}
